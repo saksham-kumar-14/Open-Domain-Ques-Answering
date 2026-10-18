@@ -22,13 +22,13 @@ def normalize_answer(s: str) -> str:
 
 
 def compute_exact(prediction: str, ground_truths: Union[str, List[str]]) -> int:
-    if isinstance(ground_truths, str):
+    if isinstance(ground_truths, str):      # sanity check
         ground_truths = [ground_truths]
     norm_pred = normalize_answer(prediction)
     return int(any(norm_pred == normalize_answer(gt) for gt in ground_truths))
 
 def compute_f1(prediction: str, ground_truths: Union[str, List[str]]) -> float:
-    if isinstance(ground_truths, str):
+    if isinstance(ground_truths, str):      # sanity check
         ground_truths = [ground_truths]
 
     norm_pred = normalize_answer(prediction)
@@ -52,7 +52,7 @@ def compute_f1(prediction: str, ground_truths: Union[str, List[str]]) -> float:
     return best_f1
 
 def compute_recall_at_k(retrieved_passages: List[str], ground_truths: Union[str, List[str]]) -> bool:
-    if isinstance(ground_truths, str):
+    if isinstance(ground_truths, str):      # sanity check
         ground_truths = [ground_truths]
 
     for passage in retrieved_passages:
