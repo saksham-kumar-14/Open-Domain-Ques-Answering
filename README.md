@@ -1,5 +1,7 @@
 # Open-Domain-Ques-Answering
 
+[Primary Paper Link](https://arxiv.org/pdf/1704.00051)
+
 ## Part 1 -- Baseline: Classical Lexical Retrieve-and-Extract
 Builds a fully classical, non-neural pipeline to solve Open-Domain Question Answering by splitting the problem into two distinct stages: finding the right text (`Retrieval`) and pulling out the exact answer string (`Extraction`).
 
