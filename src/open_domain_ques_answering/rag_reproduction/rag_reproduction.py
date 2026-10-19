@@ -10,25 +10,25 @@ from open_domain_ques_answering.utils import compute_exact, compute_f1, compute_
 class RAGSystem:
     def __init__(self, corpus: List[Dict[str, str]], dense_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
         self.corpus = corpus
-        # Initialize Dense Retriever
         self.retriever = SentenceTransformer(dense_model_name)
 
         # Build FAISS Flat Index
-        print("Encoding passages for dense retrieval... (This may take a moment)")
         passage_texts = [d['text'] for d in corpus]
+        print("Encoding passages for dense retrieval...")
         embeddings = self.retriever.encode(passage_texts, batch_size=64, show_progress_bar=True, normalize_embeddings=True)
 
         self.dim = embeddings.shape[1]
-        self.index = faiss.IndexFlatIP(self.dim)  # Cosine similarity on normalized vectors
+        self.index = faiss.IndexFlatIP(self.dim)
         self.index.add(np.array(embeddings, dtype=np.float32))
 
-        # Initialize Generator LLM
+        # Generator initialization
         self.gen_model_name = "Qwen/Qwen2.5-1.5B-Instruct"
         print(f"Loading Generator: {self.gen_model_name}...")
+
         self.tokenizer = AutoTokenizer.from_pretrained(self.gen_model_name)
         self.generator = AutoModelForCausalLM.from_pretrained(
             self.gen_model_name,
-            torch_dtype=torch.float16,
+            dtype=torch.float16,
             device_map="auto"
         )
 
@@ -38,7 +38,6 @@ class RAGSystem:
         return indices[0].tolist()
 
     def generate_answer(self, query: str, passages: List[str]) -> str:
-        # Truncate to 200 tokens per passage as required
         truncated_passages = [p[:200] for p in passages[:5]]
         context = "\n".join([f"Passage {i+1}: {p}" for i, p in enumerate(truncated_passages)])
 
@@ -55,7 +54,7 @@ class RAGSystem:
                 **inputs,
                 max_new_tokens=64,
                 temperature=0.0,
-                do_sample=False # Enforces greedy decoding
+                do_sample=False
             )
 
         generated_text = self.tokenizer.decode(
