@@ -21,16 +21,19 @@ class RAGSystem:
         self.index = faiss.IndexFlatIP(self.dim)
         self.index.add(np.array(embeddings, dtype=np.float32))
 
-        # Generator initialization
+        # 1. Force Apple Silicon MPS device explicitly
+        self.device = "mps" if torch.backends.mps.is_available() else "cpu"
+
         self.gen_model_name = "Qwen/Qwen2.5-1.5B-Instruct"
-        print(f"Loading Generator: {self.gen_model_name}...")
+        print(f"Loading Generator: {self.gen_model_name} on {self.device}...")
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.gen_model_name)
+
+        # 2. Remove device_map="auto" and use .to(self.device)
         self.generator = AutoModelForCausalLM.from_pretrained(
             self.gen_model_name,
-            dtype=torch.float16,
-            device_map="auto"
-        )
+            torch_dtype=torch.float16,
+        ).to(self.device)
 
     def retrieve(self, query: str, top_k: int = 5) -> List[int]:
         q_emb = self.retriever.encode([query], normalize_embeddings=True)
@@ -53,7 +56,7 @@ class RAGSystem:
             outputs = self.generator.generate(
                 **inputs,
                 max_new_tokens=64,
-                temperature=0.0,
+                # Removed temperature=0.0 because do_sample=False implies greedy decoding
                 do_sample=False
             )
 
