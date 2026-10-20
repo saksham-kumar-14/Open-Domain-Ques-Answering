@@ -44,7 +44,7 @@ Once the top k passages are retrieved, the extraction phase is replaced by a gen
 
 Fuses lexical and dense retrieval signals and verifies generated answers for evidence grounding.
 
-**Paper:** [Paper link](https://dl.acm.org/doi/10.1145/1571941.1572114)
+**Paper:** [Paper link](https://cormack.uwaterloo.ca/cormacksigir09-rrf.pdf)
 
 ### Reciprocal Rank Fusion (RRF)
 
