@@ -40,11 +40,11 @@ Once the top k passages are retrieved, the extraction phase is replaced by a gen
 - **Reading Comprehension & Synthesis:** Instead of relying on brittle syntactic parsing rules (such as noun-phrase extraction in task 1), the language model comprehends the full context, resolves coreferences, and synthesizes a concise, factual answer string.
 - **Deterministic Decoding:** Output generation uses greedy decoding (`do_sample=False`) to enforce temperature zero behavior (eliminating stochastic randomness), maximizing output factual accuracy and minimizing hallucinations.
 
-## Part 3 — Extension: Hybrid Retrieval & Groundedness Verification
+## Part 3 -- Extension: Hybrid Retrieval & Groundedness Verification
 
 Fuses lexical and dense retrieval signals and verifies generated answers for evidence grounding.
 
-**Paper:** [Reciprocal Rank Fusion Outperforms Condorcet and Individual Rank Learning Methods (Cormack et al., 2009)](https://dl.acm.org/doi/10.1145/1571941.1572114)
+**Paper:** [Paper link](https://dl.acm.org/doi/10.1145/1571941.1572114)
 
 ### Reciprocal Rank Fusion (RRF)
 
