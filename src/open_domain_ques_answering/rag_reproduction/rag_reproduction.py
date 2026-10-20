@@ -21,7 +21,6 @@ class RAGSystem:
         self.index = faiss.IndexFlatIP(self.dim)
         self.index.add(np.array(embeddings, dtype=np.float32))
 
-        # 1. Force Apple Silicon MPS device explicitly
         self.device = "mps" if torch.backends.mps.is_available() else "cpu"
 
         self.gen_model_name = "Qwen/Qwen2.5-1.5B-Instruct"
@@ -29,7 +28,6 @@ class RAGSystem:
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.gen_model_name)
 
-        # 2. Remove device_map="auto" and use .to(self.device)
         self.generator = AutoModelForCausalLM.from_pretrained(
             self.gen_model_name,
             torch_dtype=torch.float16,

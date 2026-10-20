@@ -9,7 +9,7 @@ class ClassicalQA:
     def __init__(self, corpus: List[Dict[str, str]]):
         self.corpus = corpus  # List of {'id': ..., 'text': ...}
         self.tokenized_corpus = [doc['text'].lower().split() for doc in corpus]
-        self.bm25 = BM25Okapi(self.tokenized_corpus, k1=1.5, b=0.75)  #[cite: 20]
+        self.bm25 = BM25Okapi(self.tokenized_corpus, k1=1.5, b=0.75)
 
     def retrieve(self, query: str, top_k: int = 10) -> List[int]:
         tokenized_query = query.lower().split()
@@ -34,7 +34,7 @@ class ClassicalQA:
         if best_sent is None:
             return passage_text[:30]
 
-        # Extract longest Noun Phrase or Number[cite: 20]
+        # Extract longest Noun Phrase or Number
         spans = [chunk.text for chunk in best_sent.noun_chunks] + \
                 [ent.text for ent in best_sent.ents if ent.label_ in {"NUM", "CARDINAL", "DATE"}]
 
@@ -52,12 +52,12 @@ class ClassicalQA:
             retrieved_idx = self.retrieve(q, top_k=max(k_list))
             retrieved_passages = [self.corpus[i]['text'] for i in retrieved_idx]
 
-            # Compute recall@k[cite: 20]
+            # Compute recall@k
             for k in k_list:
                 if compute_recall_at_k(retrieved_passages[:k], gts):
                     results[f"recall@{k}"] += 1.0
 
-            # Answer extraction from top-1 passage[cite: 20]
+            # Answer extraction from top-1 passage
             pred = self.extract_answer(q, retrieved_passages[0])
             results["em"] += compute_exact(pred, gts)
             results["f1"] += compute_f1(pred, gts)
