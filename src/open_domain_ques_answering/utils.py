@@ -55,9 +55,11 @@ def compute_recall_at_k(retrieved_passages: List[str], ground_truths: Union[str,
     if isinstance(ground_truths, str):      # sanity check
         ground_truths = [ground_truths]
 
+    norm_gts = [normalize_answer(gt) for gt in ground_truths]
     for passage in retrieved_passages:
-        norm_passage = normalize_answer(passage)
-        for gt in ground_truths:
-            if normalize_answer(gt) in norm_passage:
+        # Padding with spaces matches whole words only, so "no" does not match "know"
+        norm_passage = f" {normalize_answer(passage)} "
+        for norm_gt in norm_gts:
+            if norm_gt and f" {norm_gt} " in norm_passage:
                 return True
     return False

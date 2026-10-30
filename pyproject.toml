@@ -23,6 +23,7 @@ dependencies = [
 
 [project.scripts]
 task = "open_domain_ques_answering.run:main"
+prepare-index = "open_domain_ques_answering.prepare_index:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -2,6 +2,21 @@
 
 [Primary Paper Link](https://arxiv.org/pdf/1704.00051)
 
+## Passage Indexes
+
+`rag-mini-wikipedia` ships its own passage corpus. `nq_open` and `trivia_qa` do not, so each needs a Wikipedia-paragraph index, built once and reused for all three tasks:
+
+```bash
+uv run prepare-index --dataset nq_open --sample_size 300 --seed 42
+uv run prepare-index --dataset trivia_qa --sample_size 300 --seed 42
+```
+
+- **Page selection:** each sampled question is searched on English Wikipedia using only the question text, once as written and once with its keywords joined by `OR`, keeping the top 3 pages of each search. 300 random pages are added as distractors. Gold answers are never used to select or write passages.
+- **Segmentation:** pages are split within sections into passages of 100-200 words, skipping sections such as References and External links.
+- **Output:** `src/open_domain_ques_answering/data/<dataset>_n<size>_seed<seed>.jsonl`, plus a `.manifest.json` recording the build date, sizes, and answer coverage (the share of questions whose answer appears anywhere in the index, an upper bound on recall).
+
+The index depends on live Wikipedia and random page selection, so a rebuild will differ. Reuse the same files to reproduce results. `--sample_size` and `--seed` must match between `prepare-index` and `task`.
+
 ## Part 1 -- Baseline: Classical Lexical Retrieve-and-Extract
 Builds a fully classical, non-neural pipeline to solve Open-Domain Question Answering by splitting the problem into two distinct stages: finding the right text (`Retrieval`) and pulling out the exact answer string (`Extraction`).
 
@@ -96,7 +111,7 @@ F1 = 2 · Precision · Recall / (Precision + Recall)
 
 ### 3. Recall@k
 
-Retrieval-stage metric: whether at least one acceptable gold answer string appears as a substring of the top-`k` retrieved passages.
+Retrieval-stage metric: whether at least one acceptable gold answer string appears, as whole words, in the top-`k` retrieved passages.
 
 ```text
 Recall@k = 1  if there exists some Gᵢ that is a substring of (Doc₁ ∪ ... ∪ Doc_k)

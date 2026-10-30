@@ -38,9 +38,13 @@ class RAGSystem:
         _, indices = self.index.search(np.array(q_emb, dtype=np.float32), top_k)
         return indices[0].tolist()
 
+    def truncate_passage(self, passage: str, max_tokens: int = 200) -> str:
+        token_ids = self.tokenizer(passage, add_special_tokens=False, truncation=True, max_length=max_tokens).input_ids
+        return self.tokenizer.decode(token_ids, skip_special_tokens=True)
+
     def generate_answer(self, query: str, passages: List[str]) -> str:
-        truncated_passages = [p[:200] for p in passages[:5]]
-        context = "\n".join([f"Passage {i+1}: {p}" for i, p in enumerate(truncated_passages)])
+        truncated_passages = [self.truncate_passage(p) for p in passages[:5]]
+        context ="\n".join([f"Passage {i+1}: {p}" for i, p in enumerate(truncated_passages)])
 
         prompt = (
             f"Answer the question concisely based strictly on the provided context.\n\n"
