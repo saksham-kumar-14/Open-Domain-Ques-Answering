@@ -30,3 +30,8 @@ build/
 *.egg-info/
 
 # Note: uv.lock is intentionally NOT ignored so your environment is reproducible
+
+# tex pdf builds
+*.log
+*.aux
+*.out

@@ -26,7 +26,7 @@
 \maketitle
 
 \begin{abstract}
-This report describes three open-domain question answering systems evaluated on a fixed sample of 300 questions from Natural Questions (Open), over a Wikipedia-paragraph index of 45,029 passages built for this project. Task~1 is a classical pipeline using BM25 retrieval and rule-based answer extraction. Task~2 reproduces the retrieve-then-generate design of Retrieval-Augmented Generation (RAG) using a MiniLM dense retriever and the Qwen2.5-1.5B-Instruct generator. Task~3 fuses both rankings with Reciprocal Rank Fusion (RRF) and adds a lexical groundedness check. The dense RAG system performed best, with 27.7\% Exact Match (EM) and 68.7\% recall@10. The hybrid system did not improve on it, reaching 25.7\% EM and 62.7\% recall@10. The classical system retrieved the answer within the top 10 passages for 56.7\% of questions, but achieved only 0.3\% EM. The groundedness check flagged only wrong answers, but caught just 11.7\% of them. We analyse why fusion did not help and why vocabulary overlap is a weak signal of correctness.
+This report describes three open-domain question answering systems evaluated on a fixed sample of 300 questions from Natural Questions (Open), over a Wikipedia-paragraph index of 45,029 passages built for this project. Task~1 is a classical pipeline using BM25 retrieval and rule-based answer extraction. Task~2 reproduces the retrieve-then-generate design of Retrieval-Augmented Generation (RAG) using a MiniLM dense retriever and the Qwen2.5-1.5B-Instruct generator. Task~3 fuses both rankings with Reciprocal Rank Fusion (RRF) and adds a lexical groundedness check. The dense RAG system performed best, with 27.7\% Exact Match (EM) and 68.7\% recall@10. The hybrid system did not improve on it, reaching 25.7\% EM and 62.7\% recall@10. The classical system retrieved the answer within the top 10 passages for 56.7\% of questions, but achieved only 0.3\% EM. The groundedness check flagged 26 answers, none of which exactly matched a gold answer, but it caught just 11.7\% of answers scored as wrong, and some of its flags were on answers that were right in meaning. We analyse why fusion did not help and why vocabulary overlap is a weak signal of correctness.
 \end{abstract}
 
 \section{Introduction}
@@ -253,6 +253,8 @@ Each run saves its metrics and exact command under \texttt{results/}, one folder
 uv run task --dataset nq_open --sample_size 300 --seed 42
 \end{lstlisting}
 
+The original run saved only aggregate metrics, so a second run on the same index recorded each question's Task~2 and Task~3 answers. It reproduced the exact match counts (83 and 77), F1 scores, and flag count (26) of the original run. The paired comparisons, threshold analysis, and examples below all come from those records.
+
 \section{Results}
 
 \subsection{Answering and retrieval}
@@ -288,7 +290,7 @@ Task 3 & 77 & 95 & 143 & 168 & 188 \\
 \label{tab:counts}
 \end{table}
 
-\textbf{Uncertainty.} With 300 questions, approximate 95\% margins are $\pm$5.1 points for Task~2's EM and $\pm$4.9 for Task~3's, and $\pm$5.3 and $\pm$5.5 for their recall@10. The 2-point EM gap between Tasks~2 and~3 (6 questions) lies well within this noise. The 6-point recall@10 gap (18 questions) is stronger evidence, though these independent margins do not settle it. All systems share the same questions, so a paired test would be the proper comparison, but it would require per-question outputs, which this run did not save.
+\textbf{Uncertainty.} With 300 questions, approximate 95\% margins are $\pm$5.1 points for Task~2's EM and $\pm$4.9 for Task~3's, and $\pm$5.3 and $\pm$5.5 for their recall@10. The systems answer the same questions, so EM can also be compared directly. Both are correct on 64 questions and both wrong on 204; only Task~2 is correct on 19, and only Task~3 on 13. An exact McNemar test on those 32 disagreements gives $p=0.38$, so \textbf{the 2-point EM gap is not statistically significant}. The 6-point recall@10 gap (18 questions) looks stronger, but per-passage records were not kept, so it could not be paired in the same way.
 
 \subsection{Groundedness verification}
 \label{sec:ground-results}
@@ -325,7 +327,24 @@ Total & 274 & 26 & 300 \\
 \label{tab:confusion}
 \end{table}
 
-The check's 34.3\% accuracy is low partly because of the metric's construction: treating ``grounded'' as a prediction of ``correct'' means that the 197 wrong answers supported by passage vocabulary all count as errors. A check that never flags anything would still score 25.7\%. The check's useful property is its precision: all 26 flagged answers were wrong. Abstaining on them would raise the correct share of answered questions from 25.7\% to 28.1\% (77 of 274) while still answering 91.3\% of questions. This is a calculation from the counts and was not a separate run.
+The check's 34.3\% accuracy is low partly because of how the metric is constructed: treating ``grounded'' as a prediction of ``correct'' counts all 197 grounded but wrong answers as errors. A check that never flags anything would still score 25.7\%. Scored by EM, its useful property is precision: none of the 26 flagged answers exactly matched a gold answer. Section~\ref{sec:qualitative} shows that this overstates its precision, because at least five of them are right in meaning.
+
+Table~\ref{tab:thresholds} applies other thresholds to the saved overlap scores. Every EM-correct answer has an overlap of exactly 1.0, so raising the threshold flags more wrong answers without losing a correct one. Even so, the strictest threshold catches only 18.8\% of wrong answers, because 181 of the 223 wrong answers also have an overlap of exactly 1.0, and 142 of those share no tokens with any gold answer. Abstaining on flagged answers would raise the correct share of answered questions from 25.7\% to 28.1\% at the 0.5 threshold, and to 29.8\% at 1.0. These are calculations from saved scores, not separate runs, and were not tuned on held-out data.
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{@{}rrrrrr@{}}
+\toprule
+Threshold & Flagged & Correct kept & Wrong flagged & Accuracy & Correct among answered \\
+\midrule
+0.50 & 26 & 77/77 & 26/223 (11.7\%) & 34.3\% & 77/274 (28.1\%) \\
+0.75 & 34 & 77/77 & 34/223 (15.2\%) & 37.0\% & 77/266 (28.9\%) \\
+1.00 & 42 & 77/77 & 42/223 (18.8\%) & 39.7\% & 77/258 (29.8\%) \\
+\bottomrule
+\end{tabular}
+\caption{Effect of the overlap threshold on Task~3 answers, with correctness defined by EM. The specified system uses 0.5.}
+\label{tab:thresholds}
+\end{table}
 
 \subsection{Comparison with the RAG paper}
 Table~\ref{tab:paper} compares our result with those of Lewis et al.\ on Natural Questions. Our Task~2 EM is 16.8 points below RAG-Sequence.
@@ -358,9 +377,51 @@ The likely causes, none of which were isolated experimentally, are:
 \end{itemize}
 
 \section{Qualitative Analysis}
+\label{sec:qualitative}
 
+Table~\ref{tab:examples} shows real outputs from the 300-question sample. Overall, the two systems gave the same answer (ignoring case) on 138 questions, and their answers averaged about 2.5 words, so the short-answer prompt generally worked.
+
+\begin{table}[ht]
+\centering
+\small
+\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\textwidth}{@{}c>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{2.4cm}>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{2.7cm}@{}}
+\toprule
+Task & Question & Gold answer & Prediction & Outcome \\
+\midrule
+2 & who plays matthew on anne with an e & R. H. Thomson & R. H. Thomson & Correct \\
+2 & when did muhammad ali win an olympic gold medal & 1960 & 1960 & Correct \\
+2 & when did holland become involved in world war 2 & 10 May 1940; 15 May 1940 & May 1940 & Wrong by EM, F1 0.80 \\
+2 & who explored waters of cuba the bahamas and hispaniola & Christopher Columbus & Amerigo Vespucci & Incorrect \\
+\midrule
+3 & where did the butchers in the slaughterhouse cases live & New Orleans & New Orleans & Correct, grounded (1.00) \\
+3 & who plays jimmy's mom in 8 mile & Kim Basinger & Kim Basinger & Correct, grounded (1.00) \\
+3 & when did holland become involved in world war 2 & 10 May 1940; 15 May 1940 & January 7, 1941 & Incorrect, grounded (1.00) \\
+3 & who sang how long has this been going on song & Ace & Adele Astaire and Allen Kearns & Incorrect, grounded (1.00) \\
+3 & who played solomon in little house on the prairie & Todd Bridges & no & Incorrect, flagged (0.00) \\
+3 & how many ammendments to the constitution have there been & Twenty-seven; Thirty-three & 27 & Wrong by EM, flagged (0.00) \\
+\bottomrule
+\end{tabularx}
+\caption{Examples of system behaviour, showing overlap scores for Task~3. Question spelling and casing are as in the dataset.}
+\label{tab:examples}
+\end{table}
+
+\textbf{Hybrid retrieval helps when dense retrieval misses a rare term.} For the \emph{slaughterhouse cases} question, dense retrieval's top results concern \emph{Butcher} and \emph{Mad cow crisis}, and the answer is the irrelevant ``traceability of these animals''. Fusion brings in four \emph{Slaughter-House Cases} passages, and the answer becomes correct. This is the complementarity that motivated Task~3.
+
+\textbf{Hybrid retrieval hurts when a query word matches the wrong topic.} For the \emph{holland} question, dense retrieval correctly interprets the word as the Netherlands and retrieves \emph{Netherlands in World War II}, leading to the near-correct ``May 1940''. In the fused list, the top result is \emph{Spessard Holland}, a page about a person, and the answer becomes ``January 7, 1941''. A lexical match has overridden the question's meaning, a concrete instance of the failure proposed in Section~\ref{sec:discussion}.
+
+\textbf{Answers are sensitive to which passages are retrieved.} Task~3 answered ``2002'' to the Muhammad Ali question after \emph{Pakistan at the Olympics} entered its passages, whereas Task~2 answered correctly. For \emph{when does season 8 of vampire diaries come out}, both systems retrieved season~8 pages, but a different passage set changed the answer from the correct ``October 21, 2016'' to ``February 8, 2017''. Of the questions where only one system was correct, 19 favour dense retrieval and 13 favour hybrid.
+
+\textbf{EM marks many reasonable answers as wrong.} Of Task~2's 217 wrong answers, 53 share tokens with a gold answer, and 34 have an F1 of at least 0.5. Examples include ``Dave Gahan'' for \emph{David Gahan}, ``Thomas O.\ Chisholm'' for \emph{Thomas Chisholm}, ``IBM'' for \emph{at IBM}, and ``emperor'' for \emph{emperors}. Task~3's ``December 25, 2010'' scores an F1 of 1.0 against \emph{25 December 2010} but fails EM because of word order. The reported EM therefore understates true accuracy, by an amount this study did not measure.
+
+\textbf{Some gold answers no longer match the index.} The index was built from 2026 Wikipedia, whereas time-dependent questions have older gold answers. For \emph{where are they playing the superbowl at this year}, the gold answer is \emph{Minneapolis, Minnesota}, while Task~2's retrieved pages include the much later \emph{Super Bowl LX}, and both systems answer ``Levi's Stadium''. \emph{who was the chicago bears quarterback last year} similarly fails. Such questions penalise a system for retrieving current information.
+
+\textbf{The yes/no instruction causes a distinct error.} The prompt's instruction for yes/no questions has a side effect: Task~3 answered ``yes'' or ``no'' to 9 questions that were not yes/no questions, such as \emph{who played solomon in little house on the prairie}, and Task~2 to 11. None were correct. All 9 Task~3 cases were flagged, making up about a third of all flags, so much of what the check catches is this one prompt artefact, not unsupported factual claims. Task~3 also explicitly declined on two questions (``No information provided'' and ``The passage does not provide information\ldots'').
+
+\textbf{Some flags are false alarms, and some reveal outside knowledge.} At least five flagged answers are right in meaning: ``27'', ``December 25, 2010'', ``1952-1953'', ``12.9 kilometers'', and ``two'' (for \emph{two parties}). Their causes differ. Normalisation deletes punctuation, so ``1952-1953'' becomes the single token \emph{19521953} and ``12.9'' becomes \emph{129}, which is unlikely to match passage text. In contrast, ``27'' has no overlap with its retrieved passages, whose titles include \emph{Constitution of India}. This suggests that the generator may have used its own knowledge, which is what the check is meant to detect, even though the answer is true. Groundedness and correctness are thus separate properties.
 
 \section{Discussion}
+\label{sec:discussion}
 
 \textbf{Task 1: retrieval was far better than extraction.} BM25 found the answer in the top five passages for 48.0\% of questions, yet produced just one exact match. The extractor reads only the top passage, whose recall@1 is 25.3\%, so most questions fail immediately. Even with the right passage, the longest noun phrase is a poor proxy for the answer: the rule ignores question type, and tends to return long spans where gold answers are short. This is what the specification's fixed heuristic would be expected to do, and is the clearest case for a learned reader.
 
@@ -368,11 +429,11 @@ The likely causes, none of which were isolated experimentally, are:
 
 \textbf{Task 2: generation closed most of the gap.} Moving from extraction to generation raised EM from 0.3\% to 27.7\%. Retrieval improved too, but that accounts for only a small part of the change: recall@5 rose by 10.7 points. The generator also sees five passages rather than one, and interprets the question. Prompt wording mattered for scoring, since EM penalises any text beyond the answer.
 
-\textbf{Task 3: fusion did not improve on dense retrieval.} This differs from the RRF paper's finding, and the data suggest why. Hybrid recall sits between BM25's and dense retrieval's at every $k$, and the fused system's largest deficit is at $k=10$, at 6.0 points. With equal weights and two lists, a passage that ranks moderately in both can overtake one ranked highly by the stronger retriever alone. Since BM25 is clearly weaker here at every $k$, it may displace good dense results more often than it adds new answers.
+\textbf{Task 3: fusion did not improve on dense retrieval.} This differs from the RRF paper's finding, and the data suggest why. Hybrid recall sits between BM25's and dense retrieval's at every $k$, and the fused system's largest deficit is at $k=10$, at 6.0 points. With equal weights and two lists, a passage that ranks moderately in both can overtake one ranked highly by the stronger retriever alone. Since BM25 is clearly weaker here at every $k$, it may displace good dense results more often than it adds new answers. The examples in Section~\ref{sec:qualitative} show both effects, and the paired EM counts (19 against 13) lean towards displacement without being statistically significant.
 
 Two differences from the paper may explain this. RRF was evaluated on many runs, such as 30 system configurations, where no single ranking dominates; fusing just two rankings of unequal quality is a much weaker setting. BM25 here is also deliberately simple, with whitespace tokenization. However, the stricter tokenizer we tried did not help, so this weakness has no easy fix. Our reader-level gap was small: the EM-to-recall@5 ratio was 47\% for Task~2 and 46\% for Task~3, which suggests that the hybrid deficit stems mainly from retrieval.
 
-\textbf{Groundedness: overlap measures vocabulary, not truth.} The check confirmed that every correct answer was supported by passage vocabulary, and that every flagged answer was wrong, but it caught only about one wrong answer in nine. Three design limits explain this. The generator is told to answer from the context, and so naturally copies passage words. The token set of five 200-word passages is large, so even wrong answers overlap by chance. Unigram overlap also ignores whether an answer's words appear together or answer the question. The check therefore works best as a high-precision warning for unsupported output, and not as a general verifier of correctness.
+\textbf{Groundedness: overlap measures vocabulary, not truth.} Every EM-correct answer had full vocabulary support, but the check caught only about one wrong answer in nine at the specified threshold. Three design limits explain this. The generator is told to answer from the context, and so naturally copies passage words. The token set of five 200-word passages is large, so even a wrong answer overlaps easily. Unigram overlap also ignores whether an answer's words appear together or actually answer the question: ``January 7, 1941'' has a perfect overlap score for a question about the Netherlands. Flags are also uneven in quality, since a third come from a prompt artefact and some mark correct answers. The check therefore catches obviously unsupported output, but cannot verify correctness.
 
 \textbf{Limitations.}
 \begin{itemize}
@@ -383,13 +444,13 @@ Two differences from the paper may explain this. RRF was evaluated on many runs,
     \item The results come from a single seed and a single frozen index.
 \end{itemize}
 
-\textbf{Future work.} Promising directions include: weighted RRF favouring the dense retriever; a cross-encoder reranker over the fused candidates; a stronger dense encoder; retrieving more candidates before generation; a few-shot prompt drawn from the Natural Questions training split, which the assignment allows; an entailment-based groundedness check, along with a threshold sweep; and logging per-question outputs to allow paired significance testing.
+\textbf{Future work.} Promising directions include: weighted RRF favouring the dense retriever; a cross-encoder reranker over the fused candidates; a stronger dense encoder; a few-shot prompt drawn from the Natural Questions training split, which the assignment allows; applying the yes/no instruction only to questions of that form; normalising numbers and dates before matching; an entailment-based groundedness check; and recording retrieved passages to allow paired recall comparisons.
 
 \section{Conclusion}
 
 We built and compared three open-domain QA systems on a shared Wikipedia-derived index. Dense retrieval with generation was the most effective, achieving 27.7\% EM and 68.7\% recall@10, far above the rule-based extractive baseline's 0.3\% EM. Our EM was below the 44.5\% reported for end-to-end trained RAG, a gap consistent with the absence of task-specific training and the smaller models used.
 
-Hybrid RRF did not deliver the expected improvement, with 25.7\% EM and 62.7\% recall@10, which suggests that equal-weight fusion is less useful when one retriever is clearly weaker. The lexical groundedness check flagged only wrong answers, but only 11.7\% of them. It can serve as a precise warning signal, but cannot on its own establish that an answer is correct. Overall, for this dataset and index, the largest gains came from replacing rule-based extraction with generation, not from combining retrievers.
+Hybrid RRF did not deliver the expected improvement, with 25.7\% EM and 62.7\% recall@10, which suggests that equal-weight fusion is less useful when one retriever is clearly weaker. The difference in EM between the dense and hybrid systems is not statistically significant ($p=0.38$), and the examples show fusion both rescuing and damaging individual answers. The lexical groundedness check caught only 11.7\% of wrong answers, and many of its flags reflect a prompt artefact or formatting differences. It can warn of clearly unsupported output, but cannot on its own establish that an answer is correct. Overall, for this dataset and index, the largest gains came from replacing rule-based extraction with generation, not from combining retrievers.
 
 \begin{thebibliography}{99}
 \bibitem{drqa} D. Chen, A. Fisch, J. Weston, and A. Bordes. Reading Wikipedia to answer open-domain questions. In \emph{Proc. ACL}, 2017. arXiv:1704.00051.
