@@ -1,7 +1,12 @@
+import json
 import re
 import string
 from collections import Counter
-from typing import List, Union
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Union
+
+RESULTS_DIR = Path(__file__).resolve().parents[2] / "results"
 
 # Lowercases, removes punctuation, articles, and extra whitespace
 def normalize_answer(s: str) -> str:
@@ -63,3 +68,12 @@ def compute_recall_at_k(retrieved_passages: List[str], ground_truths: Union[str,
             if norm_gt and f" {norm_gt} " in norm_passage:
                 return True
     return False
+
+def save_results(task_dir: str, dataset: str, num_questions: int, seed: int, command: str, metrics: Dict[str, float]) -> Path:
+    """Writes one task's metrics to a new timestamped file, so earlier runs are never overwritten."""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    path = RESULTS_DIR / task_dir / f"{dataset}_n{num_questions}_seed{seed}_{timestamp}.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"```\n{command}\n```\n\n```\n{json.dumps(metrics, indent=2)}\n```\n", encoding="utf-8")
+    print(f"Results saved to {path}")
+    return path

@@ -85,6 +85,16 @@ Overlap(P, C) = |Tokens(P) ∩ Tokens(C)| / |Tokens(P)|
 
 ---
 
+## Results
+
+Each `uv run task` run saves every task's metrics as soon as that task finishes, along with the command that produced them:
+
+```text
+results/<lexical_baseline|rag_reproduction|hybrid>/<dataset>_n<questions>_seed<seed>_<timestamp>.md
+```
+
+`<questions>` is the number of questions actually evaluated. `rag-mini-wikipedia` always uses its full test split, regardless of `--sample_size`. Every run gets a new file, so earlier results are never overwritten.
+
 ## Evaluation Metrics
 
 All tasks are evaluated across standard dataset splits using four primary metrics.
