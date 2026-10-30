@@ -21,7 +21,12 @@ class RAGSystem:
         self.index = faiss.IndexFlatIP(self.dim)
         self.index.add(np.array(embeddings, dtype=np.float32))
 
-        self.device = "mps" if torch.backends.mps.is_available() else "cpu"
+        if torch.cuda.is_available():
+            self.device = "cuda"
+        elif torch.backends.mps.is_available():
+            self.device = "mps"
+        else:
+            self.device = "cpu"
 
         self.gen_model_name = "Qwen/Qwen2.5-1.5B-Instruct"
         print(f"Loading Generator: {self.gen_model_name} on {self.device}...")
@@ -30,7 +35,7 @@ class RAGSystem:
 
         self.generator = AutoModelForCausalLM.from_pretrained(
             self.gen_model_name,
-            torch_dtype=torch.float16,
+            dtype=torch.float32 if self.device == "cpu" else torch.float16,
         ).to(self.device)
 
     def retrieve(self, query: str, top_k: int = 5) -> List[int]:
@@ -44,14 +49,17 @@ class RAGSystem:
 
     def generate_answer(self, query: str, passages: List[str]) -> str:
         truncated_passages = [self.truncate_passage(p) for p in passages[:5]]
-        context ="\n".join([f"Passage {i+1}: {p}" for i, p in enumerate(truncated_passages)])
+        context = "\n".join([f"Passage {i+1}: {p}" for i, p in enumerate(truncated_passages)])
 
-        prompt = (
-            f"Answer the question concisely based strictly on the provided context.\n\n"
-            f"Context:\n{context}\n\n"
-            f"Question: {query}\n"
-            f"Answer:"
-        )
+        messages = [{
+            "role": "user",
+            "content": (
+                f"Answer the question concisely based strictly on the provided context.\n\n"
+                f"Context:\n{context}\n\n"
+                f"Question: {query}"
+            ),
+        }]
+        prompt = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.generator.device)
         with torch.no_grad():
