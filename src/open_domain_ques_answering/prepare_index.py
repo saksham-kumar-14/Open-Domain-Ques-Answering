@@ -17,8 +17,9 @@ from open_domain_ques_answering.utils import normalize_answer
 
 API_URL = "https://en.wikipedia.org/w/api.php"
 USER_AGENT = "Open-Domain-Ques-Answering/0.1 (course project; https://github.com/saksham-kumar-14/Open-Domain-Ques-Answering)"
-REQUEST_DELAY = 0.1  # seconds between API calls
-MAX_RETRIES = 5
+REQUEST_DELAY = 1.0  # seconds between API calls
+MAX_RETRIES = 8
+MAX_BACKOFF = 120  # seconds, longest wait between retries
 
 MIN_WORDS = 100
 MAX_WORDS = 200
@@ -53,8 +54,13 @@ class WikipediaClient:
             except (urllib.error.URLError, TimeoutError) as e:
                 if attempt == MAX_RETRIES - 1:
                     raise
-                print(f"Wikipedia request failed ({e}), retrying...")
-                time.sleep(2 ** (attempt + 1))
+                wait = min(2 ** (attempt + 1), MAX_BACKOFF)
+                # Rate limit responses usually say how long to wait
+                retry_after = e.headers.get("Retry-After", "") if isinstance(e, urllib.error.HTTPError) else ""
+                if retry_after.isdigit():
+                    wait = max(wait, int(retry_after))
+                print(f"Wikipedia request failed ({e}), retrying in {wait}s...")
+                time.sleep(wait)
         raise RuntimeError("unreachable")
 
     def _cached(self, key: str, fetch):
