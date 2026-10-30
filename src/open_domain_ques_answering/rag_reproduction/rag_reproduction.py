@@ -54,7 +54,9 @@ class RAGSystem:
         messages = [{
             "role": "user",
             "content": (
-                f"Answer the question concisely based strictly on the provided context.\n\n"
+                f"Answer the question based strictly on the provided context. "
+                f"Reply with only the answer as a short phrase, not a full sentence. "
+                f"If it is a yes/no question, reply with only yes or no.\n\n"
                 f"Context:\n{context}\n\n"
                 f"Question: {query}"
             ),
