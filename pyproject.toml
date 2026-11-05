@@ -24,6 +24,7 @@ dependencies = [
 [project.scripts]
 task = "open_domain_ques_answering.run:main"
 prepare-index = "open_domain_ques_answering.prepare_index:main"
+tune-rrf = "open_domain_ques_answering.tune_rrf:main"
 
 [build-system]
 requires = ["hatchling"]

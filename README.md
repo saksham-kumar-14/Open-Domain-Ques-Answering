@@ -72,6 +72,7 @@ RRF(d) = 1 / (60 + r_BM25(d)) + 1 / (60 + r_Dense(d))
 - **Lexical precision + semantic recall:** BM25 handles proper nouns, rare entity identifiers, and numerical constraints, while FAISS captures conceptual similarity and paraphrasing.
 - **Rank merging:** Documents are re-ranked by their aggregated reciprocal rank across both retrievers before being passed to the generative reader.
 - **Weighted fusion (optional):** `--bm25_weight` and `--dense_weight` (default `1.0` each, which is the standard RRF above) scale each retriever's term, so a weaker retriever can count for less, e.g. `uv run task --dataset nq_open --sample_size 300 --bm25_weight 0.3`.
+- **Choosing the weight:** `uv run tune-rrf --dataset nq_open --sample_size 300` splits the questions into 100 dev and 200 test (`--dev_size`, `--split_seed`), tries each BM25 weight on dev by recall@5 (`--weights`, `--metric`), then scores dense retrieval, standard RRF and the chosen weight once on test. It uses retrieval only, so no generator is loaded, and saves results to `results/rrf_tuning/`. Exact ties go to the weight closest to `1.0`.
 
 ### Groundedness Verification Pass
 

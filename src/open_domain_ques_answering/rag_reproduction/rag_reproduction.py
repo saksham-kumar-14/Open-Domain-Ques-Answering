@@ -8,7 +8,8 @@ from typing import List, Dict, Any
 from open_domain_ques_answering.utils import compute_exact, compute_f1, compute_recall_at_k
 
 class RAGSystem:
-    def __init__(self, corpus: List[Dict[str, str]], dense_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
+    def __init__(self, corpus: List[Dict[str, str]], dense_model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+                 load_generator: bool = True):
         self.corpus = corpus
         self.retriever = SentenceTransformer(dense_model_name)
 
@@ -20,6 +21,10 @@ class RAGSystem:
         self.dim = embeddings.shape[1]
         self.index = faiss.IndexFlatIP(self.dim)
         self.index.add(np.array(embeddings, dtype=np.float32))
+
+        # Retrieval-only callers, such as RRF weight tuning, skip loading the generator
+        if not load_generator:
+            return
 
         if torch.cuda.is_available():
             self.device = "cuda"
