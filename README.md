@@ -71,6 +71,7 @@ RRF(d) = 1 / (60 + r_BM25(d)) + 1 / (60 + r_Dense(d))
 
 - **Lexical precision + semantic recall:** BM25 handles proper nouns, rare entity identifiers, and numerical constraints, while FAISS captures conceptual similarity and paraphrasing.
 - **Rank merging:** Documents are re-ranked by their aggregated reciprocal rank across both retrievers before being passed to the generative reader.
+- **Weighted fusion (optional):** `--bm25_weight` and `--dense_weight` (default `1.0` each, which is the standard RRF above) scale each retriever's term, so a weaker retriever can count for less, e.g. `uv run task --dataset nq_open --sample_size 300 --bm25_weight 0.3`.
 
 ### Groundedness Verification Pass
 

@@ -7,11 +7,15 @@ from open_domain_ques_answering.rag_reproduction.rag_reproduction import RAGSyst
 from open_domain_ques_answering.utils import compute_exact, compute_f1, compute_recall_at_k, normalize_answer
 
 class HybridQA:
-    def __init__(self, classical_model: ClassicalQA, rag_model: RAGSystem, rrf_k: int = 60):
+    def __init__(self, classical_model: ClassicalQA, rag_model: RAGSystem, rrf_k: int = 60,
+                 bm25_weight: float = 1.0, dense_weight: float = 1.0):
         self.bm25_model = classical_model.bm25
         self.corpus = classical_model.corpus
         self.rag_model = rag_model
         self.rrf_k = rrf_k
+        # Equal weights give standard RRF; a lower weight lets that retriever's ranks count for less
+        self.bm25_weight = bm25_weight
+        self.dense_weight = dense_weight
 
     def retrieve_rrf(self, query: str, top_k: int = 10) -> List[int]:
         # 1. Get BM25 lexical rankings
@@ -22,14 +26,14 @@ class HybridQA:
         # 2. Get Dense vector rankings
         dense_ranked_indices = self.rag_model.retrieve(query, top_k=len(self.corpus))
 
-        # 3. Compute RRF Scores (constant = 60)
+        # 3. Compute weighted RRF Scores (constant = 60)
         rrf_scores = defaultdict(float)
 
         for rank, doc_idx in enumerate(bm25_ranked_indices):
-            rrf_scores[doc_idx] += 1.0 / (self.rrf_k + (rank + 1))
+            rrf_scores[doc_idx] += self.bm25_weight / (self.rrf_k + (rank + 1))
 
         for rank, doc_idx in enumerate(dense_ranked_indices):
-            rrf_scores[doc_idx] += 1.0 / (self.rrf_k + (rank + 1))
+            rrf_scores[doc_idx] += self.dense_weight / (self.rrf_k + (rank + 1))
 
         # 4. Sort candidate documents by total RRF score
         sorted_docs = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)

@@ -12,6 +12,8 @@ def main():
     parser.add_argument("--dataset", type=str, default="rag-mini-wikipedia", choices=["rag-mini-wikipedia", "nq_open", "trivia_qa"])
     parser.add_argument("--sample_size", type=int, default=300, help="Evaluation sample size")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--bm25_weight", type=float, default=1.0, help="Weight of BM25 ranks in Task 3 fusion")
+    parser.add_argument("--dense_weight", type=float, default=1.0, help="Weight of dense ranks in Task 3 fusion")
     args = parser.parse_args()
 
     # Load dataset
@@ -19,6 +21,8 @@ def main():
 
     # Each task is saved as soon as it finishes, so a later failure keeps earlier results
     command = f"uv run task --dataset {args.dataset} --sample_size {args.sample_size} --seed {args.seed}"
+    if (args.bm25_weight, args.dense_weight) != (1.0, 1.0):
+        command += f" --bm25_weight {args.bm25_weight} --dense_weight {args.dense_weight}"
     def save(task_dir, metrics):
         save_results(task_dir, args.dataset, len(qa_pairs), args.seed, command, metrics)
 
@@ -38,7 +42,7 @@ def main():
 
     # Task 3: Hybrid Fusion & Groundedness Verification[cite: 1]
     print(f"\n=== Task 3: Hybrid Retrieval (RRF) & Groundedness Verification [{args.dataset}] ===")
-    t3_model = HybridQA(t1_model, t2_model, rrf_k=60)
+    t3_model = HybridQA(t1_model, t2_model, rrf_k=60, bm25_weight=args.bm25_weight, dense_weight=args.dense_weight)
     t3_metrics, groundedness_stats = t3_model.evaluate(qa_pairs, k_list=[1, 3, 5, 10])
 
     print(f"Task 3 Hybrid Metrics:\n{json.dumps(t3_metrics, indent=2)}")
